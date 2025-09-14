@@ -20,7 +20,7 @@ spec:
       containers:
         - name : backend
           # use youre backend's docker image
-          image: 640168439056.dkr.ecr.eu-west-3.amazonaws.com/backend:1.0.9
+          image: 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
           ports :
           - containerPort: 80
           env:
