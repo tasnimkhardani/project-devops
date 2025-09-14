@@ -5,14 +5,17 @@ WORKDIR /build
 
 COPY package*.json ./
 
-RUN npm ci ; npm cache clean --force
+RUN npm ci && npm cache clean --force
 
-# production
+# production stage
 FROM node:20-alpine
 
 WORKDIR /app
 
-COPY --from=build build/node_modules ./node_modules
+# 🔧 Correction : utiliser le chemin absolu
+COPY --from=build /build/node_modules ./node_modules
+
+# Copier tout le code de l'app
 COPY . .
 
 EXPOSE 80
