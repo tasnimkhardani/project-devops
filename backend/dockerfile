@@ -5,7 +5,7 @@ WORKDIR /build
 
 COPY package*.json ./
 
-RUN npm ci && npm cache clean --force
+RUN npm ci ; npm cache clean --force
 
 # production stage
 FROM node:20-alpine
