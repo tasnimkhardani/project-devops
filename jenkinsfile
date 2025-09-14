@@ -17,7 +17,6 @@ pipeline {
 
                         docker rmi -f 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe || true
                         docker rmi -f 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe || true
-                        docker rmi -f 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:frontend-pfe || true
                       '''
                 }
             }
@@ -43,7 +42,6 @@ stage('Build Docker Images') {
 
                     trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
                     trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe
-                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:frontend-pfe
                       
                        """
                 }
