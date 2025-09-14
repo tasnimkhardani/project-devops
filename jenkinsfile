@@ -7,7 +7,6 @@ pipeline {
                 git branch: 'main', credentialsId: 'Gitalb', url: 'git@gitlab.com:aymanhjd/APP-PFE.git'
             }
         }
--
 
             
         stage('Clean Docker') {
