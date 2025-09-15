@@ -25,8 +25,8 @@ stage('Build Docker Images') {
                 script {
                     echo " Build Docker images for backend, dashboard, and frontend ..."
                     sh '''
-                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe -f backend/dockerfile .
-                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe -f dashboard/dockerfile .
+                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfee -f backend/dockerfile .
+                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfee -f dashboard/dockerfile .
                     '''
                 }
             }
@@ -39,8 +39,8 @@ stage('Build Docker Images') {
 
                     sh """
 
-                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
-                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfee
+                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfee
                       
                        """
                 }
@@ -60,9 +60,9 @@ stage('Build Docker Images') {
                 
 
                 sh """
-                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
-                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe
-                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:frontend-pfe
+                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfee
+                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfee
+                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:frontend-pfee
                 """
             }
         }
