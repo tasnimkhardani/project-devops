@@ -21,7 +21,7 @@ spec:
       containers:
         - name: backend
           # utilise ton image Docker
-          image: 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
+          image: 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfee
           ports:
           - containerPort: 80
           env:
