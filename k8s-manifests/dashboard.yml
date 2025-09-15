@@ -1,27 +1,28 @@
+---
 # dashboard deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dashboard-deployment
   labels:
-    name: dashboard-deployment
+    app: dashboard
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: dashboard-pod
+      app: dashboard
   template:
     metadata:
       labels:
-        name: dashboard-pod
+        app: dashboard
     spec:
       imagePullSecrets:
       - name: ecr-secret
       containers:
-        - name : dashboard
-          # use youre dashboard's docker image
+        - name: dashboard
+          # utilise ton image Docker
           image: 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe
-          ports :
+          ports:
           - containerPort: 80
 ---
 # dashboard service
@@ -31,54 +32,9 @@ metadata:
   name: dashboard-svc
 spec:
   selector:
-    name: dashboard-pod
-  type: ClusterIP
+    app: dashboard
+  type: NodePort
   ports:
     - port: 80
       targetPort: 80
----
-# dashboard ingress
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: dashboard-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  ingressClassName: nginx
-  rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: dashboard-svc
-            port:
-              number: 80
----
-# dashboard hpa
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: hpa-dashboard
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: dashboard-deployment
-  minReplicas: 1
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 70
+      nodePort: 30081
