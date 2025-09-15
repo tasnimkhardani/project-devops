@@ -1,27 +1,28 @@
+---
 # backend deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend-deployment
   labels:
-    name: backend-deployment
+    app: backend
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: backend-pod
+      app: backend
   template:
     metadata:
       labels:
-        name: backend-pod
+        app: backend
     spec:
       imagePullSecrets:
       - name: ecr-secret
       containers:
-        - name : backend
-          # use youre backend's docker image
+        - name: backend
+          # utilise ton image Docker
           image: 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
-          ports :
+          ports:
           - containerPort: 80
           env:
             - name: DATABASE
@@ -31,12 +32,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend
+  name: backend-svc
 spec:
   selector:
-    name: backend-pod
+    app: backend
   type: NodePort
   ports:
     - port: 80
       targetPort: 80
-       nodePort:30080
+      nodePort: 30080
