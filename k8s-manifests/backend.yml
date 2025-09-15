@@ -35,53 +35,8 @@ metadata:
 spec:
   selector:
     name: backend-pod
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 80
       targetPort: 80
----
-# backend ingress
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: backend-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  ingressClassName: nginx
-  rules:
-  - http:
-      paths:
-      - path: /backend
-        pathType: Prefix
-        backend:
-          service:
-            name: backend
-            port:
-              number: 80
----
-# backend hpa
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: hpa-backend
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: backend-deployment
-  minReplicas: 1
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 70
+       nodePort:30080
