@@ -25,8 +25,8 @@ stage('Build Docker Images') {
                 script {
                     echo " Build Docker images for backend, dashboard, and frontend ..."
                     sh '''
-                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfee -f backend/dockerfile .
-                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfee -f dashboard/dockerfile .
+                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe -f backend/dockerfile .
+                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe -f dashboard/dockerfile .
                     '''
                 }
             }
@@ -39,8 +39,8 @@ stage('Build Docker Images') {
 
                     sh """
 
-                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfee
-                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfee
+                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
+                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe
                       
                        """
                 }
@@ -60,9 +60,8 @@ stage('Build Docker Images') {
                 
 
                 sh """
-                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfee
-                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfee
-                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:frontend-pfee
+                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
+                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe
                 """
             }
         }
@@ -78,7 +77,7 @@ stage('Build Docker Images') {
             sh '''
                 kubectl delete -f k8s-manifests/backend.yml || true
                 kubectl delete -f k8s-manifests/dashboard.yml || true
-                kubectl delete -f k8s-manifests/mongodb.yml || true
+               # kubectl delete -f k8s-manifests/mongodb.yml || true
             '''
 
             
@@ -91,7 +90,7 @@ stage('Build Docker Images') {
             sh '''
                 kubectl apply --validate=false -f k8s-manifests/backend.yml
                 kubectl apply --validate=false -f k8s-manifests/dashboard.yml
-                kubectl apply --validate=false -f k8s-manifests/mongodb.yml
+               # kubectl apply --validate=false -f k8s-manifests/mongodb.yml
 
             '''
         }
