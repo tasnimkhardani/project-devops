@@ -7,6 +7,16 @@ pipeline {
                 git branch: 'main', credentialsId: 'Gitalb', url: 'git@gitlab.com:aymanhjd/APP-PFE.git'
             }
         }
+        }
+stage('SonarQube Analysis') {
+    steps {
+        script {
+            withSonarQubeEnv('Sonar') {
+                sh '/opt/sonar-scanner/bin/sonar-scanner -Dsonar.projectKey=aymanhjd_pfe_app_ac6490e0-ae9e-470d-8580-edb815461092 '
+            }
+        }
+    }
+}
 
             
         stage('Clean Docker') {
