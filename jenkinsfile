@@ -24,8 +24,8 @@ stage('SonarQube Analysis') {
                 script {
                     sh '''
 
-                        docker rmi -f 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe || true
-                        docker rmi -f 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe || true
+                        docker rmi -f 630633962478.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe || true
+                        docker rmi -f 630633962478.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe || true
                       '''
                 }
             }
@@ -35,8 +35,8 @@ stage('Build Docker Images') {
                 script {
                     echo " Build Docker images for backend, dashboard, and frontend ..."
                     sh '''
-                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe -f backend/dockerfile .
-                        docker build -t 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe -f dashboard/dockerfile .
+                        docker build -t 630633962478.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe -f backend/dockerfile .
+                        docker build -t 630633962478.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe -f dashboard/dockerfile .
                     '''
                 }
             }
@@ -49,8 +49,8 @@ stage('Build Docker Images') {
 
                     sh """
 
-                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
-                    trivy image --exit-code 0 --severity CRITICAL,HIGH 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                    trivy image --exit-code 0 --severity CRITICAL,HIGH 630633962478.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
+                    trivy image --exit-code 0 --severity CRITICAL,HIGH 630633962478.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
                       
                        """
                 }
@@ -70,8 +70,8 @@ stage('Build Docker Images') {
                 
 
                 sh """
-                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:backend-pfe
-                        docker push 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                        docker push 630633962478.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
+                        docker push 630633962478.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
                 """
             }
         }
