@@ -65,8 +65,7 @@ stage('Build Docker Images') {
 
                 sh """
                     echo "Connexion ECR AWS..."
-                    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 645052660152.dkr.ecr.us-east-1.amazonaws.com
-                """
+aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 630633962478.dkr.ecr.eu-north-1.amazonaws.com                """
                 
 
                 sh """
