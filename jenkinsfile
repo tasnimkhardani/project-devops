@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Clone') {
             steps {
-                git branch: 'main', credentialsId: 'Gitlab', url: 'git@gitlab.com:aymanhjd/APP-PFE.git'
+                git branch: 'main', credentialsId: 'Gitalb', url: 'git@gitlab.com:aymanhjd/APP-PFE.git'
             }
         }
         
