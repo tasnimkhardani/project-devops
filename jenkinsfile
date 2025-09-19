@@ -7,7 +7,7 @@ pipeline {
                 git branch: 'main', credentialsId: 'Gitlab', url: 'git@gitlab.com:aymanhjd/APP-PFE.git'
             }
         }
-        }
+        
 stage('SonarQube Analysis') {
     steps {
         script {
@@ -147,6 +147,6 @@ stage('Email notification') {
 }
 
     }
-}
 
+}
 
