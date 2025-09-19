@@ -21,7 +21,7 @@ spec:
       containers:
         - name: dashboard
           # utilise ton image Docker
-          image: 645052660152.dkr.ecr.us-east-1.amazonaws.com/pfe-ecr:dashboard-pfe
+          image: 630633962478.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
           ports:
           - containerPort: 80
 ---
