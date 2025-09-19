@@ -86,7 +86,7 @@ aws ecr get-login-password --region eu-north-1 | docker login --username AWS --p
             sh '''
                 kubectl delete -f k8s-manifests/backend.yml || true
                 kubectl delete -f k8s-manifests/dashboard.yml || true
-                kubectl delete -f k8s-manifests/mongodb.yml || true
+                #kubectl delete -f k8s-manifests/mongodb.yml || true
             '''
 
             
@@ -99,7 +99,7 @@ aws ecr get-login-password --region eu-north-1 | docker login --username AWS --p
             sh '''
                 kubectl apply --validate=false -f k8s-manifests/backend.yml
                 kubectl apply --validate=false -f k8s-manifests/dashboard.yml
-                kubectl apply --validate=false -f k8s-manifests/mongodb.yml
+               # kubectl apply --validate=false -f k8s-manifests/mongodb.yml
 
             '''
         }
