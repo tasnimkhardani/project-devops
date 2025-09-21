@@ -10,7 +10,7 @@ services:
       - PORT=80
       - DATABASE=mongodb://admin:dwXJmJVrSvXpVUML@mongodb/mapApp?retryWrites=true&w=majority&appName=map-app&authSource=admin
 
-  dashboard:# Frontend
+  dashboard: 
     build:
       context: ./dashboard
     ports:
