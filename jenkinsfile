@@ -62,19 +62,17 @@ stage('Build Docker Images') {
         script {
             echo "Push images to ECR AWS..."
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'ECR']]) {
-
+                sh '''
                     echo "Connexion ECR AWS..."
-                    sh """
-aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 082608135204.dkr.ecr.eu-north-1.amazonaws.com                
-"""
-                sh """
-                        docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
-                        docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
-                """
+                    aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 082608135204.dkr.ecr.eu-north-1.amazonaws.com
+                    docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
+                    docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                '''
             }
         }
     }
 }
+
 
       stage('Deploy to Kubernetes') {
     steps {
