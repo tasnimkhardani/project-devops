@@ -63,7 +63,6 @@ stage('Build Docker Images') {
             echo "Push images to ECR AWS..."
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'ECR']]) {
 
-                sh """
                     echo "Connexion ECR AWS..."
 aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 082608135204.dkr.ecr.eu-north-1.amazonaws.com                
 
