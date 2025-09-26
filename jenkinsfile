@@ -83,7 +83,7 @@ stage('Build Docker Images') {
             sh '''
                 kubectl delete -f k8s-manifests/backend.yml || true
                 kubectl delete -f k8s-manifests/dashboard.yml || true
-                #kubectl delete -f k8s-manifests/mongodb.yml || true
+                kubectl delete -f k8s-manifests/mongodb.yml || true
             '''
 
             
@@ -96,7 +96,7 @@ stage('Build Docker Images') {
             sh '''
                 kubectl apply --validate=false -f k8s-manifests/backend.yml
                 kubectl apply --validate=false -f k8s-manifests/dashboard.yml
-               # kubectl apply --validate=false -f k8s-manifests/mongodb.yml
+                kubectl apply --validate=false -f k8s-manifests/mongodb.yml
 
             '''
         }
