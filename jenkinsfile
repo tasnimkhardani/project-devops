@@ -122,18 +122,19 @@ stage('Slack notification') {
 stage('Email notification') {
     steps {
         script {
-            def buildStatus = currentBuild.currentResult
-            def subject = "${env.JOB_NAME} - Build #${env.BUILD_NUMBER} - ${buildStatus}"
+            def buildStatus = currentBuild.result ?: 'SUCCESS'
+            def subject = "Pipeline ${buildStatus}"
+
             def body = """
-                <p>Pipeline Status: ${buildStatus}</p>
-                <p>Job Name: ${env.JOB_NAME}</p>
-                <p>Build Number: ${env.BUILD_NUMBER}</p>
-                <p>Build URL: <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>
+                <p><b>Pipeline Status:</b> ${buildStatus}</p>
+                <p><b>Job Name:</b> ${env.JOB_NAME}</p>
+                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>Build URL:</b> <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>
             """
 
-            // Envoi du mail avec le plugin Extended Email
             emailext (
                 to: 'aymanhjd@gmail.com',
+                from: 'aymanhjd@gmail.com',
                 subject: subject,
                 body: body,
                 mimeType: 'text/html'
@@ -141,6 +142,7 @@ stage('Email notification') {
         }
     }
 }
+
 
     }
 
