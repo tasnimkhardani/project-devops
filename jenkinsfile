@@ -122,32 +122,31 @@ stage('Slack notification') {
 stage('Email notification') {
     steps {
         script {
-            // Détecter le statut réel
+            // Détecte le statut réel du build
             def buildStatus = currentBuild.result ?: 'SUCCESS'
 
-            // Sujet clair
+            // Sujet simple
             def subject = "Pipeline ${buildStatus}"
 
             // Corps HTML simple
             def body = """
                 <html>
                 <body>
-                <p><b>Pipeline Status:</b> ${buildStatus}</p>
-                <p><b>Job Name:</b> ${env.JOB_NAME}</p>
-                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                <p><b>Build URL:</b> <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>
+                    <p><b>Pipeline Status:</b> ${buildStatus}</p>
+                    <p><b>Job Name:</b> ${env.JOB_NAME}</p>
+                    <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                    <p><b>Build URL:</b> <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>
                 </body>
                 </html>
             """
 
+            // Envoi direct du mail
             emailext (
-                to: 'aymanhjd@gmail.com',
-                from: 'aymanhjd@gmail.com',   // Doit être ton Gmail SMTP
+                to: 'aymanhjd@gmail.com',       // Destinataire fixe
+                from: 'aymanhjd@gmail.com',     // Doit être ton compte SMTP Gmail
                 subject: subject,
                 body: body,
-                mimeType: 'text/html',
-                replyTo: 'aymanhjd@gmail.com', // Facultatif mais sûr
-                recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+                mimeType: 'text/html'
             )
         }
     }
