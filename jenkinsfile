@@ -2,33 +2,118 @@ pipeline {
     agent any
 
     stages {
-        // ... your existing stages (Clone, SonarQube, Docker, etc.) ...
-        // (Keep them exactly as they are)
+        stage('Clone') {
+            steps {
+                git branch: 'main', credentialsId: 'Gitlab', url: 'git@gitlab.com:aymanhjd/APP-PFE.git'
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    withSonarQubeEnv('Sonar') {
+                        sh '/opt/sonar-scanner/bin/sonar-scanner -Dsonar.projectKey=aymanhjd_APP-PFE_01842035-5109-4fc0-afd2-5c819dcf5a5c'
+                    }
+                }
+            }
+        }
+
+        stage('Clean Docker') {
+            steps {
+                script {
+                    sh '''
+                        docker rmi -f 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe || true
+                        docker rmi -f 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe || true
+                    '''
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                script {
+                    echo "Build Docker images for backend, dashboard, and frontend ..."
+                    sh '''
+                        docker build -t 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe -f backend/dockerfile .
+                        docker build -t 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe -f dashboard/dockerfile .
+                    '''
+                }
+            }
+        }
+
+        stage('Trivy Vulnerability Scan') {
+            steps {
+                script {
+                    echo "Scanning Docker images with Trivy..."
+                    sh """
+                        trivy image --exit-code 1 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
+                        trivy image --exit-code 1 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                    """
+                }
+            }
+        }
+
+        stage('Push Docker Image to ECR AWS') {
+            steps {
+                script {
+                    echo "Push images to ECR AWS..."
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'ECR']]) {
+                        sh '''
+                            echo "Connexion ECR AWS..."
+                            aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 082608135204.dkr.ecr.eu-north-1.amazonaws.com
+                            docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
+                            docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                withKubeConfig(credentialsId: 'k8s', serverUrl: 'https://172.31.4.241:6443') {
+                    echo "Supprimer les anciens déploiements & services Kubernetes..."
+
+                    sh '''
+                        kubectl delete -f k8s-manifests/backend.yml || true
+                        kubectl delete -f k8s-manifests/dashboard.yml || true
+                    '''
+
+                    sh '''
+                        kubectl apply --validate=false -f k8s-manifests/backend.yml
+                        kubectl apply --validate=false -f k8s-manifests/dashboard.yml
+                    '''
+                }
+            }
+        }
     }
 
     post {
         always {
             script {
                 def buildStatus = currentBuild.result ?: 'SUCCESS'
-                def message = "Pipeline Status: ${buildStatus}\nJob Name: ${env.JOB_NAME}\nBuild Number: ${env.BUILD_NUMBER}\nBuild URL: ${env.BUILD_URL}"
+                def message = """Pipeline Status: ${buildStatus}
+Job Name: ${env.JOB_NAME}
+Build Number: ${env.BUILD_NUMBER}
+Build URL: ${env.BUILD_URL}"""
 
-                // Slack notification
+                // Slack Notification
                 if (buildStatus == 'SUCCESS') {
                     slackSend(channel: '#notif_app', message: "✅ Pipeline Succeeded\n${message}")
                 } else {
                     slackSend(channel: '#notif_app', message: "❌ Pipeline Failed (${buildStatus})\n${message}")
                 }
 
-                // Email notification
+                // Email Notification
                 def subject = "Pipeline ${buildStatus}: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
                 def body = """
                     <html>
                     <body>
                         <h3>Pipeline ${buildStatus}</h3>
                         <p><b>Job:</b> ${env.JOB_NAME}</p>
-                        <p><b>Build #:</b> ${env.BUILD_NUMBER}</p>
+                        <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
                         <p><b>Status:</b> ${buildStatus}</p>
-                        <p><b>URL:</b> <a href='${env.BUILD_URL}'>View Build</a></p>
+                        <p><b>Build URL:</b> <a href='${env.BUILD_URL}'>View Build</a></p>
                     </body>
                     </html>
                 """
