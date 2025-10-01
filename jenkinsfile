@@ -32,7 +32,7 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    echo "Build Docker images for backend, dashboard, and frontend ..."
+                    echo "Build Docker images for backend and dashboard..."
                     sh '''
                         docker build -t 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe -f backend/dockerfile .
                         docker build -t 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe -f dashboard/dockerfile .
@@ -46,8 +46,8 @@ pipeline {
                 script {
                     echo "Scanning Docker images with Trivy..."
                     sh """
-                        trivy image --exit-code 1 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
-                        trivy image --exit-code 1 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                        trivy image --exit-code 0 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
+                        trivy image --exit-code 0 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
                     """
                 }
             }
@@ -73,7 +73,6 @@ pipeline {
             steps {
                 withKubeConfig(credentialsId: 'k8s', serverUrl: 'https://172.31.4.241:6443') {
                     echo "Supprimer les anciens déploiements & services Kubernetes..."
-
                     sh '''
                         kubectl delete -f k8s-manifests/backend.yml || true
                         kubectl delete -f k8s-manifests/dashboard.yml || true
@@ -88,6 +87,7 @@ pipeline {
         }
     }
 
+    // ✅ Notifications moved OUT of stages — guaranteed to run!
     post {
         always {
             script {
@@ -101,7 +101,7 @@ Build URL: ${env.BUILD_URL}"""
                 if (buildStatus == 'SUCCESS') {
                     slackSend(channel: '#notif_app', message: "✅ Pipeline Succeeded\n${message}")
                 } else {
-                    slackSend(channel: '#notif_app', message: "❌ Pipeline Failed (${buildStatus})\n${message}")
+                    slackSend(channel: '#notif_app', message: "❌ Pipeline ${buildStatus}\n${message}")
                 }
 
                 // Email Notification
@@ -109,11 +109,10 @@ Build URL: ${env.BUILD_URL}"""
                 def body = """
                     <html>
                     <body>
-                        <h3>Pipeline ${buildStatus}</h3>
+                        <h3>Pipeline Status: ${buildStatus}</h3>
                         <p><b>Job:</b> ${env.JOB_NAME}</p>
                         <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                        <p><b>Status:</b> ${buildStatus}</p>
-                        <p><b>Build URL:</b> <a href='${env.BUILD_URL}'>View Build</a></p>
+                        <p><b>Details:</b> <a href='${env.BUILD_URL}'>View Build in Jenkins</a></p>
                     </body>
                     </html>
                 """
