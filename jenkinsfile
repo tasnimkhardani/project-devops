@@ -105,30 +105,32 @@ stage('Build Docker Images') {
 
 
 stage('Slack notification') {
-            steps {
-                script {
-                    def buildStatus = currentBuild.currentResult
-                    def message = "Pipeline Status: ${buildStatus}\nJob Name: ${env.JOB_NAME}\nBuild Number: ${env.BUILD_NUMBER}\nBuild URL: ${env.BUILD_URL}"
+    steps {
+        script {
+            def buildStatus = currentBuild.currentResult
+            def message = "Pipeline Status: ${buildStatus}\nJob Name: ${env.JOB_NAME}\nBuild Number: ${env.BUILD_NUMBER}\nBuild URL: ${env.BUILD_URL}"
 
-                    if (buildStatus == 'SUCCESS') {
-                        slackSend(channel: '#notif_app', message: "Pipeline Succeeded\n${message}")
-                    } else {
-                        slackSend(channel: '#notif_app', message: "Pipeline Failed\n${message}")
-                    }
-                }
+            if (buildStatus == 'SUCCESS') {
+                slackSend(channel: '#notif_app', message: "✅ Pipeline Succeeded\n${message}")
+            } else {
+                slackSend(channel: '#notif_app', message: "❌ Pipeline Failed\n${message}")
             }
         }
+    }
+    post {
+        always {
+            echo "Slack notification executed (status: ${currentBuild.currentResult})"
+        }
+    }
+}
 
 stage('Email notification') {
     steps {
         script {
-            // Détecte le statut réel du build
-            def buildStatus = currentBuild.result ?: 'SUCCESS'
+            def buildStatus = currentBuild.currentResult
 
-            // Sujet simple
             def subject = "Pipeline ${buildStatus}"
 
-            // Corps HTML simple
             def body = """
                 <html>
                 <body>
@@ -140,20 +142,18 @@ stage('Email notification') {
                 </html>
             """
 
-            // Envoi direct du mail
             emailext (
-                to: 'aymanhjd@gmail.com',       // Destinataire fixe
-                from: 'aymanhjd@gmail.com',     // Doit être ton compte SMTP Gmail
+                to: 'aymanhjd@gmail.com',
+                from: 'aymanhjd@gmail.com',
                 subject: subject,
                 body: body,
                 mimeType: 'text/html'
             )
         }
     }
-}
-
-
+    post {
+        always {
+            echo "Email notification executed (status: ${currentBuild.currentResult})"
+        }
     }
-
 }
-
