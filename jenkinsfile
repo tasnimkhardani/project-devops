@@ -8,31 +8,32 @@ pipeline {
             }
         }
         
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    withSonarQubeEnv('Sonar') {
-                        sh '/opt/sonar-scanner/bin/sonar-scanner -Dsonar.projectKey=aymanhjd_APP-PFE_01842035-5109-4fc0-afd2-5c819dcf5a5c'
-                    }
-                }
+stage('SonarQube Analysis') {
+    steps {
+        script {
+            withSonarQubeEnv('Sonar') {
+                sh '/opt/sonar-scanner/bin/sonar-scanner -Dsonar.projectKey=aymanhjd_APP-PFE_01842035-5109-4fc0-afd2-5c819dcf5a5c'
             }
         }
+    }
+}
 
+            
         stage('Clean Docker') {
             steps {
                 script {
                     sh '''
+
                         docker rmi -f 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe || true
                         docker rmi -f 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe || true
-                    '''
+                      '''
                 }
             }
         }
-
-        stage('Build Docker Images') {
+stage('Build Docker Images') {
             steps {
                 script {
-                    echo "Build Docker images for backend, dashboard, and frontend ..."
+                    echo " Build Docker images for backend, dashboard, and frontend ..."
                     sh '''
                         docker build -t 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe -f backend/dockerfile .
                         docker build -t 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe -f dashboard/dockerfile .
@@ -41,104 +42,117 @@ pipeline {
             }
         }
 
-        stage('Trivy Vulnerability Scan') {
-            steps {
+         stage('Trivy Vulnerability Scan') {
+             steps {
                 script {
-                    echo "Scanning Docker images with Trivy..."
-                    sh '''
-                        trivy image --exit-code 0 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
-                        trivy image --exit-code 0 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
-                    '''
+                         echo "Scanning Docker images with Trivy..."
+
+                    sh """
+
+                    trivy image --exit-code 0 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
+                    trivy image --exit-code 0 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                      
+                       """
                 }
+        }
+    }
+
+      stage('Push Docker Image to ECR AWS') {
+    steps {
+        script {
+            echo "Push images to ECR AWS..."
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'ECR']]) {
+                sh '''
+                    echo "Connexion ECR AWS..."
+                    aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 082608135204.dkr.ecr.eu-north-1.amazonaws.com
+                    docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
+                    docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                '''
             }
         }
+    }
+}
 
-        stage('Push Docker Image to ECR AWS') {
-            steps {
-                script {
-                    echo "Push images to ECR AWS..."
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'ECR']]) {
-                        sh '''
-                            echo "Connexion ECR AWS..."
-                            aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 082608135204.dkr.ecr.eu-north-1.amazonaws.com
-                            docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
-                            docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
-                        '''
-                    }
-                }
-            }
+
+      stage('Deploy to Kubernetes') {
+    steps {
+        withKubeConfig(credentialsId: 'k8s', serverUrl: 'https://172.31.4.241:6443') {
+
+            echo " Supprimer les anciens déploiements & services Kubernetes... "
+
+            sh '''
+                kubectl delete -f k8s-manifests/backend.yml || true
+                kubectl delete -f k8s-manifests/dashboard.yml || true
+              #  kubectl delete -f k8s-manifests/mongodb.yml || true
+            '''
+
+            
+
+       
+    
+
+            // Appliquer les nouvelles configurations de déploiement
+            
+            sh '''
+                kubectl apply --validate=false -f k8s-manifests/backend.yml
+                kubectl apply --validate=false -f k8s-manifests/dashboard.yml
+               # kubectl apply --validate=false -f k8s-manifests/mongodb.yml
+
+            '''
         }
+    }
+}
 
-        stage('Deploy to Kubernetes') {
-            steps {
-                withKubeConfig(credentialsId: 'k8s', serverUrl: 'https://172.31.4.241:6443') {
-                    echo "Supprimer les anciens déploiements & services Kubernetes..."
-                    sh '''
-                        kubectl delete -f k8s-manifests/backend.yml || true
-                        kubectl delete -f k8s-manifests/dashboard.yml || true
-                        # kubectl delete -f k8s-manifests/mongodb.yml || true
-                    '''
 
-                    echo "Déployer les nouvelles configurations..."
-                    sh '''
-                        kubectl apply --validate=false -f k8s-manifests/backend.yml
-                        kubectl apply --validate=false -f k8s-manifests/dashboard.yml
-                        # kubectl apply --validate=false -f k8s-manifests/mongodb.yml
-                    '''
-                }
-            }
-        }
-
-        stage('Slack notification') {
+stage('Slack notification') {
             steps {
                 script {
                     def buildStatus = currentBuild.currentResult
                     def message = "Pipeline Status: ${buildStatus}\nJob Name: ${env.JOB_NAME}\nBuild Number: ${env.BUILD_NUMBER}\nBuild URL: ${env.BUILD_URL}"
 
                     if (buildStatus == 'SUCCESS') {
-                        slackSend(channel: '#notif_app', message: "✅ Pipeline Succeeded\n${message}")
+                        slackSend(channel: '#notif_app', message: "Pipeline Succeeded\n${message}")
                     } else {
-                        slackSend(channel: '#notif_app', message: "❌ Pipeline Failed\n${message}")
+                        slackSend(channel: '#notif_app', message: "Pipeline Failed\n${message}")
                     }
                 }
             }
-            post {
-                always {
-                    echo "Slack notification executed (status: ${currentBuild.currentResult})"
-                }
-            }
         }
 
-        stage('Email notification') {
-            steps {
-                script {
-                    def buildStatus = currentBuild.currentResult
-                    def subject = "Pipeline ${buildStatus}"
-                    def body = """
-                        <html>
-                        <body>
-                            <p><b>Pipeline Status:</b> ${buildStatus}</p>
-                            <p><b>Job Name:</b> ${env.JOB_NAME}</p>
-                            <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                            <p><b>Build URL:</b> <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>
-                        </body>
-                        </html>
-                    """
+stage('Email notification') {
+    steps {
+        script {
+            // Détecte le statut réel du build
+            def buildStatus = currentBuild.result ?: 'SUCCESS'
 
-                    emailext (
-                        to: 'aymanhjd@gmail.com',
-                        from: 'aymanhjd@gmail.com',
-                        subject: subject,
-                        body: body,
-                        mimeType: 'text/html'
-                    )
-                }
-            }
-            post {
-                always {
-                    echo "Email notification executed (status: ${currentBuild.currentResult})"
-                }
-            }
+            // Sujet simple
+            def subject = "Pipeline ${buildStatus}"
+
+            // Corps HTML simple
+            def body = """
+                <html>
+                <body>
+                    <p><b>Pipeline Status:</b> ${buildStatus}</p>
+                    <p><b>Job Name:</b> ${env.JOB_NAME}</p>
+                    <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                    <p><b>Build URL:</b> <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>
+                </body>
+                </html>
+            """
+
+            // Envoi direct du mail
+            emailext (
+                to: 'aymanhjd@gmail.com',       // Destinataire fixe
+                from: 'aymanhjd@gmail.com',     // Doit être ton compte SMTP Gmail
+                subject: subject,
+                body: body,
+                mimeType: 'text/html'
+            )
         }
-    } // 👈 close stages
-} // 👈 close pipeline
+    }
+}
+
+
+    }
+
+}
