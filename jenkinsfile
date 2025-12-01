@@ -66,19 +66,20 @@ pipeline {
         }
 
         /* ---------------------- RUN (DOCKER) ----------------------- */
-        stage('Run MongoDB') {
-            steps {
-                bat """
-                    echo Starting MongoDB...
-                    docker run -d --name mongodb ^
-                    -p 4000:27017 ^
-                    -e MONGO_INITDB_ROOT_USERNAME=admin ^
-                    -e MONGO_INITDB_ROOT_PASSWORD=dwXJmJVrSvXpVUML ^
-                    mongo:latest
-                """
-                
-            }
-        }
+stage('Run Backend') {
+    steps {
+        bat """
+            echo Starting backend...
+            docker run -d --name backend ^
+            -p 3000:80 ^
+            -e "PORT=80" ^
+            -e "DATABASE=mongodb://admin:dwXJmJVrSvXpVUML@mongodb/mapApp?retryWrites=true&w=majority&appName=map-app&authSource=admin" ^
+            --link mongodb:mongodb ^
+            %BACKEND_IMAGE%
+        """
+    }
+}
+
 
         stage('Run Backend') {
             steps {
@@ -130,5 +131,6 @@ pipeline {
 
     }
 }
+
 
 
