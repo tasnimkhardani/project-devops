@@ -56,8 +56,11 @@ pipeline {
         stage('Vulnerability Scan (Trivy)') {
             steps {
                 bat """
+                     cd C:\\Users\\tasni\\Downloads\\trivy_0.67.2_windows-64bit 
                     trivy image --exit-code 0 --severity HIGH,CRITICAL %BACKEND_IMAGE%
                     trivy image --exit-code 0 --severity HIGH,CRITICAL %DASHBOARD_IMAGE%
+
+                    
                 """
             }
         }
@@ -127,4 +130,5 @@ pipeline {
 
     }
 }
+
 
