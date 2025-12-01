@@ -44,10 +44,10 @@ pipeline {
             steps {
                 bat """
                     echo Building backend image...
-                    docker build -t %BACKEND_IMAGE% -f backend\\dockerfile backend
+                    docker build -t %BACKEND_IMAGE% -f backend/dockerfile .
 
                     echo Building dashboard image...
-                    docker build -t %DASHBOARD_IMAGE% -f dashboard\\dockerfile dashboard
+                    docker build -t %DASHBOARD_IMAGE% -f dashboard/dockerfile .
                 """
             }
         }
@@ -127,3 +127,4 @@ pipeline {
 
     }
 }
+
