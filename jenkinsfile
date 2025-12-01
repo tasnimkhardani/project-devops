@@ -81,20 +81,7 @@ stage('Run Backend') {
 }
 
 
-        stage('Run Backend') {
-            steps {
-                bat """
-                    echo Starting backend...
-                    docker run -d --name backend ^
-                    -p 3000:80 ^
-                    -e PORT=80 ^
-                    -e DATABASE=mongodb://admin:dwXJmJVrSvXpVUML@mongodb/mapApp?retryWrites=true&w=majority&appName=map-app&authSource=admin ^
-                    --link mongodb:mongodb ^
-                    %BACKEND_IMAGE%
-                """
-            }
-        }
-
+       
         stage('Run Dashboard') {
             steps {
                 bat """
@@ -131,6 +118,7 @@ stage('Run Backend') {
 
     }
 }
+
 
 
 
