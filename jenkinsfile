@@ -1,30 +1,26 @@
 pipeline {
     agent any
 
+    environment {
+        BACKEND_IMAGE  = "bnbttf123/backend-image:latest"
+        DASHBOARD_IMAGE = "bnbttf123/dashboard-image:latest"
+    }
+
     stages {
+
         stage('Clone') {
             steps {
-                git branch: 'main', credentialsId: 'Gitlab', url: 'git@gitlab.com:aymanhjd/APP-PFE.git'
-            }
-        }
-        
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    withSonarQubeEnv('Sonar') {
-                        sh '/opt/sonar-scanner/bin/sonar-scanner -Dsonar.projectKey=aymanhjd_APP-PFE_01842035-5109-4fc0-afd2-5c819dcf5a5c'
-                    }
-                }
+                git branch: 'main', credentialsId: 'github', url: 'git@github.com:tasnimkhardani/project-devops.git'
             }
         }
 
         stage('Clean Docker') {
             steps {
                 script {
-                    sh '''
-                        docker rmi -f 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe || true
-                        docker rmi -f 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe || true
-                    '''
+                    bat """
+                        docker rmi -f ${BACKEND_IMAGE} || true
+                        docker rmi -f ${DASHBOARD_IMAGE} || true
+                    """
                 }
             }
         }
@@ -32,11 +28,10 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    echo "Build Docker images for backend and dashboard..."
-                    sh '''
-                        docker build -t 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe -f backend/dockerfile .
-                        docker build -t 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe -f dashboard/dockerfile .
-                    '''
+                    bat """
+                        docker build -t ${BACKEND_IMAGE} -f backend/dockerfile .
+                        docker build -t ${DASHBOARD_IMAGE} -f dashboard/dockerfile .
+                    """
                 }
             }
         }
@@ -44,86 +39,33 @@ pipeline {
         stage('Trivy Vulnerability Scan') {
             steps {
                 script {
-                    echo "Scanning Docker images with Trivy..."
-                    sh """
-                        trivy image --exit-code 0 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
-                        trivy image --exit-code 0 --severity CRITICAL,HIGH 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
+                    bat """
+                        trivy image --exit-code 0 --severity CRITICAL,HIGH ${BACKEND_IMAGE}
+                        trivy image --exit-code 0 --severity CRITICAL,HIGH ${DASHBOARD_IMAGE}
                     """
                 }
             }
         }
 
-        stage('Push Docker Image to ECR AWS') {
+        stage('Scan Server Image') {
             steps {
                 script {
-                    echo "Push images to ECR AWS..."
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'ECR']]) {
-                        sh '''
-                            echo "Connexion ECR AWS..."
-                            aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 082608135204.dkr.ecr.eu-north-1.amazonaws.com
-                            docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:backend-pfe
-                            docker push 082608135204.dkr.ecr.eu-north-1.amazonaws.com/pfe-ecr:dashboard-pfe
-                        '''
-                    }
+                    bat """
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
+                        --exit-code 0 --severity LOW,MEDIUM,HIGH,CRITICAL ${BACKEND_IMAGE}
+                    """
                 }
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Push Images to Docker Hub') {
             steps {
-                withKubeConfig(credentialsId: 'k8s', serverUrl: 'https://172.31.4.241:6443') {
-                    echo "Supprimer les anciens déploiements & services Kubernetes..."
-                    sh '''
-                        kubectl delete -f k8s-manifests/backend.yml || true
-                        kubectl delete -f k8s-manifests/dashboard.yml || true
-                    '''
-
-                    sh '''
-                        kubectl apply --validate=false -f k8s-manifests/backend.yml
-                        kubectl apply --validate=false -f k8s-manifests/dashboard.yml
-                    '''
+                withDockerRegistry([credentialsId: "dockerhub", url: ""]) {
+                    bat """
+                        docker push ${BACKEND_IMAGE}
+                        docker push ${DASHBOARD_IMAGE}
+                    """
                 }
-            }
-        }
-    }
-
-    // ✅ Notifications moved OUT of stages — guaranteed to run!
-    post {
-        always {
-            script {
-                def buildStatus = currentBuild.result ?: 'SUCCESS'
-                def message = """Pipeline Status: ${buildStatus}
-Job Name: ${env.JOB_NAME}
-Build Number: ${env.BUILD_NUMBER}
-Build URL: ${env.BUILD_URL}"""
-
-                // Slack Notification
-                if (buildStatus == 'SUCCESS') {
-                    slackSend(channel: '#notif_app', message: "✅ Pipeline Succeeded\n${message}")
-                } else {
-                    slackSend(channel: '#notif_app', message: "❌ Pipeline ${buildStatus}\n${message}")
-                }
-
-                // Email Notification
-                def subject = "Pipeline ${buildStatus}: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-                def body = """
-                    <html>
-                    <body>
-                        <h3>Pipeline Status: ${buildStatus}</h3>
-                        <p><b>Job:</b> ${env.JOB_NAME}</p>
-                        <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                        <p><b>Details:</b> <a href='${env.BUILD_URL}'>View Build in Jenkins</a></p>
-                    </body>
-                    </html>
-                """
-
-                emailext(
-                    to: 'aymanhjd@gmail.com',
-                    from: 'aymanhjd@gmail.com',
-                    subject: subject,
-                    body: body,
-                    mimeType: 'text/html'
-                )
             }
         }
     }
