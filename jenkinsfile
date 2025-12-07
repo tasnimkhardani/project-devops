@@ -2,137 +2,92 @@ pipeline {
     agent any
 
     environment {
-        BACKEND_IMAGE   = "bnbttf123/backend-image:latest"
-        DASHBOARD_IMAGE = "bnbttf123/dashboard-image:latest"
+        BACKEND_IMAGE   = ""
+        DASHBOARD_IMAGE = ""
+        GIT_TAG = ""
     }
 
     stages {
 
-        /* --------------------- CHECKOUT --------------------- */
         stage('Checkout') {
             steps {
-                git branch: 'main', 
-                    credentialsId: 'github', 
-                    url: 'git@github.com:tasnimkhardani/project-devops.git'
+                checkout scm
+                script {
+                    // Récupération du tag depuis Jenkins
+                    def ref = env.GIT_BRANCH
+                    env.GIT_TAG = ref.replace('refs/tags/', '').trim()
+
+                    env.BACKEND_IMAGE   = "bnbttf123/backend-image:${env.GIT_TAG}"
+                    env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${env.GIT_TAG}"
+                }
             }
         }
 
-        /* ---------------------- SETUP ------------------------ */
         stage('Setup') {
             steps {
-                bat "echo Setup OK > setup.log"
+                bat "echo Setup RELEASE OK > setup.log"
             }
         }
 
-        /* ---------------------- CLEANUP ------------------------ */
         stage('Cleanup') {
             steps {
                 bat """
-                    docker rm -f dashboard || echo OK
-                    docker rm -f backend || echo OK
-                    docker rm -f mongodb || echo OK
+                docker rm -f backend || echo ok
+                docker rm -f dashboard || echo ok
+                docker rm -f mongodb || echo ok
 
-                    docker rmi -f  %DASHBOARD_IMAGE% || echo ok 
-                    docker rmi -f  %BACKEND_IMAGE% || echo ok  
-                    docker rmi -f  mongo:latest || echo ok
+                docker rmi -f %BACKEND_IMAGE% || echo ok
+                docker rmi -f %DASHBOARD_IMAGE% || echo ok
                 """
             }
         }
 
-        /* ---------------------- BUILD ------------------------ */
         stage('Build Docker Images') {
             steps {
                 bat """
-                    echo Building backend image...
-                    docker build -t %BACKEND_IMAGE% -f backend/dockerfile .
+                echo Building backend image...
+                docker build -t %BACKEND_IMAGE% -f backend/dockerfile .
 
-                    echo Building dashboard image...
-                    docker build -t %DASHBOARD_IMAGE% -f dashboard/dockerfile .
+                echo Building dashboard image...
+                docker build -t %DASHBOARD_IMAGE% -f dashboard/dockerfile .
                 """
             }
         }
 
-        /* ---------------------- SECURITY ------------------------ */
-        stage('Vulnerability Scan (Trivy)') {
+        stage('Run') {
             steps {
                 bat """
-                     cd C:\\Users\\tasni\\Downloads\\trivy_0.67.2_windows-64bit 
-                    trivy image --exit-code 0 --severity HIGH,CRITICAL %BACKEND_IMAGE%
-                    trivy image --exit-code 0 --severity HIGH,CRITICAL %DASHBOARD_IMAGE%
+                docker run -d --name mongodb -p 4000:27017 ^
+                -e MONGO_INITDB_ROOT_USERNAME=admin ^
+                -e MONGO_INITDB_ROOT_PASSWORD=admin ^
+                mongo:latest
 
-                    
+                docker run -d --name backend -p 3000:80 ^
+                -e PORT=80 ^
+                --link mongodb:mongodb ^
+                %BACKEND_IMAGE%
+
+                docker run -d --name dashboard -p 3001:80 ^
+                --link backend:backend ^
+                %DASHBOARD_IMAGE%
                 """
             }
         }
 
-        /* ---------------------- RUN (DOCKER) ----------------------- */
-
-stage('Run MongoDB') {
-    steps {
-        bat """
-        docker run -d --name mongodb ^
-        -p 4000:27017 ^
-        -e MONGO_INITDB_ROOT_USERNAME=admin ^
-        -e MONGO_INITDB_ROOT_PASSWORD=dwXJmJVrSvXpVUML ^
-        mongo:latest
-        """
-    }
-}
-
-stage('Run Backend') {
-    steps {
-        bat """
-            echo Starting backend...
-            docker run -d --name backend ^
-            -p 3000:80 ^
-            -e "PORT=80" ^
-            -e "DATABASE=mongodb://admin:dwXJmJVrSvXpVUML@mongodb/mapApp?retryWrites=true&w=majority&appName=map-app&authSource=admin" ^
-            --link mongodb:mongodb ^
-            %BACKEND_IMAGE%
-        """
-    }
-}
-
-
-       
-        stage('Run Dashboard') {
-            steps {
-                bat """
-                    echo Starting dashboard...
-                    docker run -d --name dashboard ^
-                    -p 3001:80 ^
-                    -e PORT=80 ^
-                    --link backend:backend ^
-                    %DASHBOARD_IMAGE%
-                """
-            }
-        }
-
-        /* ---------------------- SMOKE TEST --------------------- */
         stage('Smoke Tests') {
             steps {
                 bat """
-                    powershell -Command "try { Invoke-WebRequest http://localhost:3000/health -OutFile smoke_backend.log } catch { exit 1 }"
-                    powershell -Command "try { Invoke-WebRequest http://localhost:3001 -OutFile smoke_dashboard.log } catch { exit 1 }"
+                powershell -Command "try { Invoke-WebRequest http://localhost:3000/health -OutFile smoke_backend.log } catch { exit 1 }"
+                powershell -Command "try { Invoke-WebRequest http://localhost:3001 -OutFile smoke_dashboard.log } catch { exit 1 }"
                 """
             }
         }
 
-
-        /* ---------------------- ARCHIVE ------------------------ */
-       stage('Archive Artifacts') {
-          steps {
-              echo "Archiving logs and smoke test results..."
-              archiveArtifacts artifacts: 'setup.log, smoke-test/*.log', allowEmptyArchive: true
-    }
+        stage('Archive Artifacts') {
+            steps {
+                echo "Archiving logs..."
+                archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
+            }
+        }
+    }
 }
-
-
-
-    }
-}
-
-
-
-
-
