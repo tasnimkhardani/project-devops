@@ -1,11 +1,10 @@
-
 pipeline {
     agent any
 
     environment {
-        BACKEND_IMAGE   = ""
+        BACKEND_IMAGE = ""
         DASHBOARD_IMAGE = ""
-        GIT_TAG = ""
+        TAG_VERSION = ""
     }
 
     stages {
@@ -14,25 +13,19 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    // Récupération du tag depuis Jenkins
-                    def ref = env.GIT_BRANCH
-                    env.GIT_TAG = ref.replace('refs/tags/', '').trim()
-
-                    env.BACKEND_IMAGE   = "bnbttf123/backend-image:${env.GIT_TAG}"
-                    env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${env.GIT_TAG}"
+                    env.TAG_VERSION = env.GIT_BRANCH.replace("refs/tags/", "").trim()
+                    env.BACKEND_IMAGE = "bnbttf123/backend-image:${env.TAG_VERSION}"
+                    env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${env.TAG_VERSION}"
                 }
-            }
-        }
-
-        stage('Setup') {
-            steps {
-                bat "echo Setup RELEASE OK > setup.log"
             }
         }
 
         stage('Cleanup') {
             steps {
                 bat """
+                set BACKEND_IMAGE=${env.BACKEND_IMAGE}
+                set DASHBOARD_IMAGE=${env.DASHBOARD_IMAGE}
+
                 docker rm -f backend || echo ok
                 docker rm -f dashboard || echo ok
                 docker rm -f mongodb || echo ok
@@ -46,10 +39,10 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 bat """
-                echo Building backend image...
-                docker build -t %BACKEND_IMAGE% -f backend/dockerfile .
+                set BACKEND_IMAGE=${env.BACKEND_IMAGE}
+                set DASHBOARD_IMAGE=${env.DASHBOARD_IMAGE}
 
-                echo Building dashboard image...
+                docker build -t %BACKEND_IMAGE% -f backend/dockerfile .
                 docker build -t %DASHBOARD_IMAGE% -f dashboard/dockerfile .
                 """
             }
@@ -58,19 +51,22 @@ pipeline {
         stage('Run') {
             steps {
                 bat """
+                set BACKEND_IMAGE=${env.BACKEND_IMAGE}
+                set DASHBOARD_IMAGE=${env.DASHBOARD_IMAGE}
+
                 docker run -d --name mongodb -p 4000:27017 ^
-                -e MONGO_INITDB_ROOT_USERNAME=admin ^
-                -e MONGO_INITDB_ROOT_PASSWORD=admin ^
-                mongo:latest
+                  -e MONGO_INITDB_ROOT_USERNAME=admin ^
+                  -e MONGO_INITDB_ROOT_PASSWORD=admin ^
+                  mongo:latest
 
                 docker run -d --name backend -p 3000:80 ^
-                -e PORT=80 ^
-                --link mongodb:mongodb ^
-                %BACKEND_IMAGE%
+                  -e PORT=80 ^
+                  --link mongodb:mongodb ^
+                  %BACKEND_IMAGE%
 
                 docker run -d --name dashboard -p 3001:80 ^
-                --link backend:backend ^
-                %DASHBOARD_IMAGE%
+                  --link backend:backend ^
+                  %DASHBOARD_IMAGE%
                 """
             }
         }
@@ -86,9 +82,8 @@ pipeline {
 
         stage('Archive Artifacts') {
             steps {
-                echo "Archiving logs..."
                 archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             }
-        }
-    }
+        }
+    }
 }
