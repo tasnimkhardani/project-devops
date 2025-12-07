@@ -2,30 +2,24 @@ pipeline {
     agent any
 
     environment {
-        BACKEND_IMAGE = ""
-        DASHBOARD_IMAGE = ""
-        TAG_VERSION = ""
+        // Initialisation dès le début
+        BACKEND_IMAGE   = "bnbttf123/backend-image:release"
+        DASHBOARD_IMAGE = "bnbttf123/dashboard-image:release"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                checkout scm
-                script {
-                    env.TAG_VERSION = env.GIT_BRANCH.replace("refs/tags/", "").trim()
-                    env.BACKEND_IMAGE = "bnbttf123/backend-image:${env.TAG_VERSION}"
-                    env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${env.TAG_VERSION}"
-                }
+                git branch: 'main',
+                    credentialsId: 'github',
+                    url: 'git@github.com:tasnimkhardani/project-devops.git'
             }
         }
 
         stage('Cleanup') {
             steps {
                 bat """
-                set BACKEND_IMAGE=${env.BACKEND_IMAGE}
-                set DASHBOARD_IMAGE=${env.DASHBOARD_IMAGE}
-
                 docker rm -f backend || echo ok
                 docker rm -f dashboard || echo ok
                 docker rm -f mongodb || echo ok
@@ -39,9 +33,6 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 bat """
-                set BACKEND_IMAGE=${env.BACKEND_IMAGE}
-                set DASHBOARD_IMAGE=${env.DASHBOARD_IMAGE}
-
                 docker build -t %BACKEND_IMAGE% -f backend/dockerfile .
                 docker build -t %DASHBOARD_IMAGE% -f dashboard/dockerfile .
                 """
@@ -51,9 +42,6 @@ pipeline {
         stage('Run') {
             steps {
                 bat """
-                set BACKEND_IMAGE=${env.BACKEND_IMAGE}
-                set DASHBOARD_IMAGE=${env.DASHBOARD_IMAGE}
-
                 docker run -d --name mongodb -p 4000:27017 ^
                   -e MONGO_INITDB_ROOT_USERNAME=admin ^
                   -e MONGO_INITDB_ROOT_PASSWORD=admin ^
@@ -84,6 +72,6 @@ pipeline {
             steps {
                 archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             }
-        }
-    }
+        }
+    }
 }
