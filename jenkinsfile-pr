@@ -1,0 +1,77 @@
+pipeline {
+    agent any
+
+    triggers {
+        githubPullRequest()
+    }
+
+    environment {
+        BACKEND_IMAGE   = "bnbttf123/backend-image:pr"
+        DASHBOARD_IMAGE = "bnbttf123/dashboard-image:pr"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                bat 'echo Setup PR OK > setup.log'
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                bat '''
+                docker rm -f backend || echo ok
+                docker rm -f dashboard || echo ok
+                docker rm -f mongodb || echo ok
+                '''
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                bat '''
+                docker build -t %BACKEND_IMAGE% -f backend/dockerfile .
+                docker build -t %DASHBOARD_IMAGE% -f dashboard/dockerfile .
+                '''
+            }
+        }
+
+        stage('Run') {
+            steps {
+                bat '''
+                docker run -d --name mongodb -p 4000:27017 mongo:latest
+
+                docker run -d --name backend -p 3000:80 ^
+                -e PORT=80 ^
+                --link mongodb:mongodb ^
+                %BACKEND_IMAGE%
+
+                docker run -d --name dashboard -p 3001:80 ^
+                --link backend:backend ^
+                %DASHBOARD_IMAGE%
+                '''
+            }
+        }
+
+        stage('Smoke Tests') {
+            steps {
+                bat '''
+                powershell -Command "Invoke-WebRequest http://localhost:3000/health -OutFile smoke_backend.log"
+                powershell -Command "Invoke-WebRequest http://localhost:3001 -OutFile smoke_dashboard.log"
+                '''
+            }
+        }
+
+        stage('Archive Artifacts') {
+            steps {
+                archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
+            }
+        }
+    }
+}
