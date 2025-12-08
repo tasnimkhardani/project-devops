@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    triggers {
-        githubPullRequest()
-    }
-
     environment {
         BACKEND_IMAGE   = "bnbttf123/backend-image:pr"
         DASHBOARD_IMAGE = "bnbttf123/dashboard-image:pr"
