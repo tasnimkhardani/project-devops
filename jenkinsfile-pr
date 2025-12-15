@@ -30,6 +30,7 @@ pipeline {
                 docker rm -f backend || true
                 docker rm -f dashboard || true
                 docker rm -f mongodb || true
+                docker-compose down || true
                 '''
             }
         }
@@ -42,20 +43,35 @@ pipeline {
                 '''
             }
         }
-
+stage('Trivy Vulnerability Scan') {
+            steps {
+                script {
+                    echo "Scanning Docker images with Trivy..."
+                    sh """
+                        trivy image --exit-code 0 --severity CRITICAL,HIGH $BACKEND_IMAGE
+                        trivy image --exit-code 0 --severity CRITICAL,HIGH  $DASHBOARD_IMAGE
+                    """
+                }
+            }
+        }
+stage('Sauvegarde les images dpcker') {
+            steps {
+                script {
+                       withDockerRegistry([credentialsId: "Dockerhub", url: ""]) {
+                   sh """
+                        docker tag $BACKEND_IMAGE bnbttf123/$BACKEND_IMAGE 
+                        docker tag $DASHBOARD_IMAGE bnbttf123/$DASHBOARD_IMAGE
+                        docker push $BACKEND_IMAGE
+                        docker push $DASHBOARD_IMAGE
+                    """
+                }
+            }
+        }
         stage('Run') {
             steps {
                 sh '''
-                docker run -d --name mongodb -p 4000:27017 mongo:latest
+                   docker-compose up -d 
 
-                docker run -d --name backend -p 3000:80 \
-                  -e PORT=80 \
-                  --link mongodb:mongodb \
-                  $BACKEND_IMAGE
-
-                docker run -d --name dashboard -p 3001:80 \
-                  --link backend:backend \
-                  $DASHBOARD_IMAGE
                 '''
             }
         }
