@@ -1,107 +1,101 @@
 pipeline {
     agent any
+    // Le pipeline peut s’exécuter sur n’importe quel agent Linux disponible
+
+    triggers {
+        githubPush()
+        // Déclenchement automatique à chaque push sur GitHub
+    }
 
     environment {
-        BACKEND_IMAGE   = "bnbttf123/backend-image"
-        DASHBOARD_IMAGE = "bnbttf123/dashboard-image"
+        // Définition des images Docker avec tag spécifique
+        BACKEND_IMAGE   = "bnbttf123/backend-image:pr"
+        DASHBOARD_IMAGE = "bnbttf123/dashboard-image:pr"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'git@github.com:tasnimkhardani/project-devops.git',
-                    credentialsId: 'github'
+                // Récupération du code source depuis le dépôt Git
+                checkout scm
             }
         }
 
         stage('Setup') {
             steps {
-                sh 'echo "Setup RELEASE OK" > setup.log'
+                // Vérification du démarrage du pipeline
+                sh 'echo "Setup PR OK" > setup.log'
             }
         }
 
         stage('Cleanup') {
             steps {
+                // Suppression des anciens conteneurs pour éviter conflits
                 sh '''
                 docker rm -f backend || true
                 docker rm -f dashboard || true
                 docker rm -f mongodb || true
-                docker rmi -f $BACKEND_IMAGE || true
-                docker rmi -f $DASHBOARD_IMAGE || true
-                docker-compose down || true
-                docker rmi -f $(docker images -q)  || true
                 '''
             }
         }
 
-        stage('Build & Run Docker Compose') {
+        stage('Build Docker Images') {
             steps {
-                script {
-                    // Récupérer le tag exact si possible, sinon dernier tag
-                    def tagName = sh(
-                        script: "git describe --tags --exact-match || git describe --tags --abbrev=0",
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Tag utilisé pour le build : ${tagName}"
-
-                    env.BACKEND_IMAGE = "bnbttf123/backend-image:${tagName}"
-                    env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${tagName}"
-
-                    // Build et run Docker Compose
-                    sh 'docker-compose up -d --build'
-                }
+                // Construction des images Docker pour backend et dashboard
+                sh '''
+                docker build -t $BACKEND_IMAGE -f backend/Dockerfile .
+                docker build -t $DASHBOARD_IMAGE -f dashboard/Dockerfile .
+                '''
             }
         }
 
-        stage('Trivy Vulnerability Scan') {
-    steps {
-        script {
-            // Utiliser les images avec le tag correct
-            def backendImg = env.BACKEND_IMAGE
-            def dashboardImg = env.DASHBOARD_IMAGE
+        stage('Security Scan') {
+            steps {
+                // Scan de sécurité avec Trivy pour détecter vulnérabilités critiques ou élevées
+                sh '''
+                echo "Scanning $BACKEND_IMAGE"
+                trivy image --exit-code 1 --severity CRITICAL,HIGH $BACKEND_IMAGE
 
-            sh """
-                echo "Scanning ${backendImg}"
-                trivy image --exit-code 1 --severity CRITICAL,HIGH ${backendImg}
-                echo "Scanning ${dashboardImg}"
-                trivy image --exit-code 1 --severity CRITICAL,HIGH ${dashboardImg}
-            """
-        }
-    }
-}
-
-stage('Push Docker Images') {
-    steps {
-        script {
-            def backendImg = env.BACKEND_IMAGE
-            def dashboardImg = env.DASHBOARD_IMAGE
-
-            withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
-                sh """
-                    docker push ${backendImg}
-                    docker push ${dashboardImg}
-                """
+                echo "Scanning $DASHBOARD_IMAGE"
+                trivy image --exit-code 1 --severity CRITICAL,HIGH $DASHBOARD_IMAGE
+                '''
             }
         }
-    }
-}
 
+        stage('Run') {
+            steps {
+                // Déploiement des conteneurs
+                // MongoDB d'abord, puis backend, puis dashboard
+                sh '''
+                docker run -d --name mongodb -p 4000:27017 mongo:latest
+
+                docker run -d --name backend -p 3000:80 \
+                  -e PORT=80 \
+                  --link mongodb:mongodb \
+                  $BACKEND_IMAGE
+
+                docker run -d --name dashboard -p 3001:80 \
+                  --link backend:backend \
+                  $DASHBOARD_IMAGE
+                '''
+            }
+        }
 
         stage('Smoke Tests') {
             steps {
+                // Tests rapides pour vérifier le bon fonctionnement des services
                 sh '''
-                    curl -f http://54.82.59.62:3000/health > smoke_backend.log || true
-                    curl -f http://54.82.59.62:3001 > smoke_dashboard.log || true
+                curl -f http://localhost:3000/health > smoke_backend.log
+                curl -f http://localhost:3001 > smoke_dashboard.log
                 '''
             }
         }
 
         stage('Archive Artifacts') {
             steps {
-                archiveArtifacts artifacts: '*.log', fingerprint: true, allowEmptyArchive: true
+                // Archivage des logs du pipeline pour analyse ou debug
+                archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             }
         }
     }
