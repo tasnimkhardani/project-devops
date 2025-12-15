@@ -3,9 +3,9 @@ FROM node:20-alpine AS build
 
 WORKDIR /build
 
-COPY dashboard/package*.json ./
+COPY package*.json ./
 
-COPY dashboard/. .
+COPY . .
 
 RUN npm install ; npm cache clean --force ; npm run build
 
@@ -20,5 +20,6 @@ COPY --from=build build/server.js ./server.js
 COPY --from=build build/.env ./.env
 
 EXPOSE 80
+
 
 ENTRYPOINT [ "node"  , "server.js" ]
