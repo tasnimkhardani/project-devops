@@ -3,7 +3,7 @@ FROM node:20-alpine AS build
 
 WORKDIR /build
 
-COPY backend/package*.json ./
+COPY package*.json ./
 
 RUN npm ci ; npm cache clean --force
 
@@ -13,8 +13,9 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY --from=build build/node_modules ./node_modules
-COPY backend/. .
+COPY . .
 
 EXPOSE 80
 
 ENTRYPOINT [ "node" , "server.js" ]
+
