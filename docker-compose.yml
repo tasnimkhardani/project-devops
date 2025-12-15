@@ -1,6 +1,6 @@
 services:
   backend:
-    image: bnbttf123/backend-image:pr
+    image: bnbttf123/backend-image
     build:
       context: ./backend
     ports:
@@ -12,7 +12,7 @@ services:
       - DATABASE=mongodb://admin:dwXJmJVrSvXpVUML@mongodb/mapApp?retryWrites=true&w=majority&appName=map-app&authSource=admin
 
   dashboard:
-    image: bnbttf123/dashboard-image:pr
+    image: bnbttf123/dashboard-image
     build:
       context: ./dashboard
     ports:
