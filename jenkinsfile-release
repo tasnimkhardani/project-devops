@@ -1,10 +1,13 @@
 pipeline {
     agent any
 
+    when {
+        buildingTag()
+    }
+
     environment {
-        // Initialisation dès le début
-        BACKEND_IMAGE   = "bnbttf123/backend-image:release"
-        DASHBOARD_IMAGE = "bnbttf123/dashboard-image:release"
+        BACKEND_IMAGE   = "bnbttf123/backend-image:${env.GIT_TAG_NAME}"
+        DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${env.GIT_TAG_NAME}"
     }
 
     stages {
@@ -12,65 +15,65 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    credentialsId: 'github',
-                    url: 'git@github.com:tasnimkhardani/project-devops.git'
+                    url: 'git@github.com:tasnimkhardani/project-devops.git',
+                    credentialsId: 'github'
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                sh 'echo "Setup RELEASE OK" > setup.log'
             }
         }
 
         stage('Cleanup') {
             steps {
-                bat """
-                docker rm -f backend || echo ok
-                docker rm -f dashboard || echo ok
-                docker rm -f mongodb || echo ok
-
-                docker rmi -f %BACKEND_IMAGE% || echo ok
-                docker rmi -f %DASHBOARD_IMAGE% || echo ok
-                """
+                sh '''
+                docker rmi -f $BACKEND_IMAGE || true
+                docker rmi -f $DASHBOARD_IMAGE || true
+                docker-compose down -v || true
+                '''
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Build & Run (Docker Compose)') {
             steps {
-                bat """
-                docker build -t %BACKEND_IMAGE% -f backend/dockerfile .
-                docker build -t %DASHBOARD_IMAGE% -f dashboard/dockerfile .
-                """
+                sh 'docker-compose up -d --build'
             }
         }
 
-        stage('Run') {
+        stage('Trivy Vulnerability Scan') {
             steps {
-                bat """
-                docker run -d --name mongodb -p 4000:27017 ^
-                  -e MONGO_INITDB_ROOT_USERNAME=admin ^
-                  -e MONGO_INITDB_ROOT_PASSWORD=admin ^
-                  mongo:latest
+                sh '''
+                trivy image --exit-code 1 --severity CRITICAL $BACKEND_IMAGE
+                trivy image --exit-code 1 --severity CRITICAL $DASHBOARD_IMAGE
+                '''
+            }
+        }
 
-                docker run -d --name backend -p 3000:80 ^
-                  -e PORT=80 ^
-                  --link mongodb:mongodb ^
-                  %BACKEND_IMAGE%
-
-                docker run -d --name dashboard -p 3001:80 ^
-                  --link backend:backend ^
-                  %DASHBOARD_IMAGE%
-                """
+        stage('Push Docker Images') {
+            steps {
+                withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
+                    sh '''
+                    docker push $BACKEND_IMAGE
+                    docker push $DASHBOARD_IMAGE
+                    '''
+                }
             }
         }
 
         stage('Smoke Tests') {
             steps {
-                bat """
-                powershell -Command "try { Invoke-WebRequest http://localhost:3000/health -OutFile smoke_backend.log } catch { exit 1 }"
-                powershell -Command "try { Invoke-WebRequest http://localhost:3001 -OutFile smoke_dashboard.log } catch { exit 1 }"
-                """
+                sh '''
+                curl -f http://localhost:3000/health > smoke_backend.log
+                curl -f http://localhost:3001 > smoke_dashboard.log
+                '''
             }
         }
 
         stage('Archive Artifacts') {
             steps {
-                archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: '*.log', fingerprint: true, allowEmptyArchive: true
             }
         }
     }
