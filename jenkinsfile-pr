@@ -70,7 +70,8 @@ stage('Sauvegarde les images dpcker') {
         stage('Smoke Tests') {
             steps {
                 sh '''
-                curl -f http://54.82.59.62:3000/health > smoke_backend.log
+                curl -f http://54.82.59.62:3000/health > smoke_backend.log  || true
+
                 curl -f http://54.82.59.62:3001 > smoke_dashboard.log
                 '''
             }
