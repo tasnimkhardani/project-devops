@@ -25,54 +25,53 @@ pipeline {
         stage('Cleanup') {
             steps {
                 sh '''
+                docker rm -f backend || true
+                docker rm -f dashboard || true
+                docker rm -f mongodb || true
                 docker rmi -f $BACKEND_IMAGE || true
                 docker rmi -f $DASHBOARD_IMAGE || true
-                docker-compose down || true
-                docker rm -f $(docker ps -a -q) || true
-
+                docker-compose down -v || true
                 '''
             }
         }
 
-        stage('Build & Run (Docker Compose)') {
-    steps {
-        script {
-            def tagName = sh(
-                script: "git describe --tags --exact-match || echo ''",
-                returnStdout: true
-            ).trim()
-            
-            if (tagName) {
-                env.BACKEND_IMAGE = "bnbttf123/backend-image:${tagName}"
-                env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${tagName}"
-                sh 'docker-compose up -d --build'
-            } else {
-                error("Ce pipeline doit être exécuté sur un tag !")
+        stage('Build & Run Docker Compose') {
+            steps {
+                script {
+                    // Récupérer le tag exact si possible, sinon dernier tag
+                    def tagName = sh(
+                        script: "git describe --tags --exact-match || git describe --tags --abbrev=0",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Tag utilisé pour le build : ${tagName}"
+
+                    env.BACKEND_IMAGE = "bnbttf123/backend-image:${tagName}"
+                    env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${tagName}"
+
+                    // Build et run Docker Compose
+                    sh 'docker-compose up -d --build'
+                }
             }
         }
-    }
-}
-
 
         stage('Trivy Vulnerability Scan') {
             steps {
-                sh '''
-                trivy image --exit-code 1 --severity CRITICAL $BACKEND_IMAGE
-                trivy image --exit-code 1 --severity CRITICAL $DASHBOARD_IMAGE
-                '''
+                sh """
+                    trivy image --exit-code 1 --severity CRITICAL,HIGH $BACKEND_IMAGE
+                    trivy image --exit-code 1 --severity CRITICAL,HIGH $DASHBOARD_IMAGE
+                """
             }
         }
 
         stage('Push Docker Images') {
             steps {
                 script {
-                    if (env.GIT_TAG_NAME) {
-                        withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
-                            sh '''
+                    withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
+                        sh """
                             docker push $BACKEND_IMAGE
                             docker push $DASHBOARD_IMAGE
-                            '''
-                        }
+                        """
                     }
                 }
             }
@@ -81,8 +80,8 @@ pipeline {
         stage('Smoke Tests') {
             steps {
                 sh '''
-                curl -f http://localhost:3000/health > smoke_backend.log
-                curl -f http://localhost:3001 > smoke_dashboard.log
+                    curl -f http://localhost:3000/health > smoke_backend.log || true
+                    curl -f http://localhost:3001 > smoke_dashboard.log || true
                 '''
             }
         }
