@@ -1,13 +1,9 @@
 pipeline {
     agent any
 
-    when {
-        buildingTag()
-    }
-
     environment {
-        BACKEND_IMAGE   = "bnbttf123/backend-image:${env.GIT_TAG_NAME}"
-        DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${env.GIT_TAG_NAME}"
+        BACKEND_IMAGE   = "bnbttf123/backend-image"
+        DASHBOARD_IMAGE = "bnbttf123/dashboard-image"
     }
 
     stages {
@@ -31,16 +27,22 @@ pipeline {
                 sh '''
                 docker rmi -f $BACKEND_IMAGE || true
                 docker rmi -f $DASHBOARD_IMAGE || true
-                docker-compose down || true
-                docker rm -f $(docker ps -a) || true
-
+                docker-compose down -v || true
                 '''
             }
         }
 
         stage('Build & Run (Docker Compose)') {
             steps {
-                sh 'docker-compose up -d --build'
+                script {
+                    if (env.GIT_TAG_NAME) {  // <- Vérifie si c'est un tag
+                        env.BACKEND_IMAGE = "bnbttf123/backend-image:${env.GIT_TAG_NAME}"
+                        env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${env.GIT_TAG_NAME}"
+                        sh 'docker-compose up -d --build'
+                    } else {
+                        error("Ce pipeline doit être exécuté sur un tag !")
+                    }
+                }
             }
         }
 
@@ -55,11 +57,15 @@ pipeline {
 
         stage('Push Docker Images') {
             steps {
-                withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
-                    sh '''
-                    docker push $BACKEND_IMAGE
-                    docker push $DASHBOARD_IMAGE
-                    '''
+                script {
+                    if (env.GIT_TAG_NAME) {
+                        withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
+                            sh '''
+                            docker push $BACKEND_IMAGE
+                            docker push $DASHBOARD_IMAGE
+                            '''
+                        }
+                    }
                 }
             }
         }
@@ -67,7 +73,7 @@ pipeline {
         stage('Smoke Tests') {
             steps {
                 sh '''
-                curl -f http://localhost:3000/health > smoke_backend.log || true
+                curl -f http://localhost:3000/health > smoke_backend.log
                 curl -f http://localhost:3001 > smoke_dashboard.log
                 '''
             }
