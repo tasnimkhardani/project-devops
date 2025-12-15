@@ -30,7 +30,7 @@ pipeline {
                 docker rm -f mongodb || true
                 docker rmi -f $BACKEND_IMAGE || true
                 docker rmi -f $DASHBOARD_IMAGE || true
-                docker-compose down -v || true
+                docker-compose down || true
                 '''
             }
         }
