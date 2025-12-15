@@ -22,7 +22,7 @@ pipeline {
             }
         }
 
-        stage('Cleanup') {
+        stage('Cleanup 1') {
             steps {
                 sh '''
                     docker rm -f backend || true
@@ -54,7 +54,7 @@ pipeline {
                 }
             }
         }
-        stage('Cleanup') {
+        stage('Cleanup 2') {
             steps {
                 sh '''
                     docker rm -f backend || true
