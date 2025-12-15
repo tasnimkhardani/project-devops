@@ -67,6 +67,7 @@ stage('Sauvegarde les images dpcker') {
                 }
             }
         }
+}
         stage('Run') {
             steps {
                 sh '''
