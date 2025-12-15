@@ -56,26 +56,38 @@ pipeline {
         }
 
         stage('Trivy Vulnerability Scan') {
-            steps {
+    steps {
+        script {
+            // Utiliser les images avec le tag correct
+            def backendImg = env.BACKEND_IMAGE
+            def dashboardImg = env.DASHBOARD_IMAGE
+
+            sh """
+                echo "Scanning ${backendImg}"
+                trivy image --exit-code 1 --severity CRITICAL,HIGH ${backendImg}
+                echo "Scanning ${dashboardImg}"
+                trivy image --exit-code 1 --severity CRITICAL,HIGH ${dashboardImg}
+            """
+        }
+    }
+}
+
+stage('Push Docker Images') {
+    steps {
+        script {
+            def backendImg = env.BACKEND_IMAGE
+            def dashboardImg = env.DASHBOARD_IMAGE
+
+            withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
                 sh """
-                    trivy image --exit-code 1 --severity CRITICAL,HIGH $BACKEND_IMAGE
-                    trivy image --exit-code 1 --severity CRITICAL,HIGH $DASHBOARD_IMAGE
+                    docker push ${backendImg}
+                    docker push ${dashboardImg}
                 """
             }
         }
+    }
+}
 
-        stage('Push Docker Images') {
-            steps {
-                script {
-                    withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
-                        sh """
-                            docker push $BACKEND_IMAGE
-                            docker push $DASHBOARD_IMAGE
-                        """
-                    }
-                }
-            }
-        }
 
         stage('Smoke Tests') {
             steps {
