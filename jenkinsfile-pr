@@ -27,22 +27,22 @@ pipeline {
         stage('Cleanup') {
             steps {
                 sh '''
-                docker rm -f backend || true
-                docker rm -f dashboard || true
-                docker rm -f mongodb || true
-                docker-compose down || true
+                docker rmi -f $BACKEND_IMAGE || true
+                docker rmi -f $DASHBOARD_IMAGE || true
+                docker-compose down -v || true
+                '''
+            }
+        }
+        stage('Build images docker and run container') {
+            steps {
+                sh '''
+                   docker-compose up -d --build 
+
                 '''
             }
         }
 
-        stage('Build Docker Images') {
-            steps {
-                sh '''
-                docker build -t $BACKEND_IMAGE -f backend/Dockerfile .
-                docker build -t $DASHBOARD_IMAGE -f dashboard/Dockerfile .
-                '''
-            }
-        }
+
 stage('Trivy Vulnerability Scan') {
             steps {
                 script {
@@ -59,8 +59,6 @@ stage('Sauvegarde les images dpcker') {
                 script {
                        withDockerRegistry([credentialsId: "Dockerhub", url: ""]) {
                    sh """
-                        docker tag $BACKEND_IMAGE bnbttf123/$BACKEND_IMAGE 
-                        docker tag $DASHBOARD_IMAGE bnbttf123/$DASHBOARD_IMAGE
                         docker push $BACKEND_IMAGE
                         docker push $DASHBOARD_IMAGE
                     """
@@ -68,14 +66,6 @@ stage('Sauvegarde les images dpcker') {
             }
         }
 }
-        stage('Run') {
-            steps {
-                sh '''
-                   docker-compose up -d 
-
-                '''
-            }
-        }
 
         stage('Smoke Tests') {
             steps {
