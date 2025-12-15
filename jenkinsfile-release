@@ -31,7 +31,9 @@ pipeline {
                 sh '''
                 docker rmi -f $BACKEND_IMAGE || true
                 docker rmi -f $DASHBOARD_IMAGE || true
-                docker-compose down -v || true
+                docker-compose down || true
+                docker rm -f $(docker ps -a)
+
                 '''
             }
         }
