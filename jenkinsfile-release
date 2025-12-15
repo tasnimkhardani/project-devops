@@ -35,18 +35,24 @@ pipeline {
         }
 
         stage('Build & Run (Docker Compose)') {
-            steps {
-                script {
-                    if (env.GIT_TAG_NAME) {  // <- Vérifie si c'est un tag
-                        env.BACKEND_IMAGE = "bnbttf123/backend-image:${env.GIT_TAG_NAME}"
-                        env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${env.GIT_TAG_NAME}"
-                        sh 'docker-compose up -d --build'
-                    } else {
-                        error("Ce pipeline doit être exécuté sur un tag !")
-                    }
-                }
+    steps {
+        script {
+            def tagName = sh(
+                script: "git describe --tags --exact-match || echo ''",
+                returnStdout: true
+            ).trim()
+            
+            if (tagName) {
+                env.BACKEND_IMAGE = "bnbttf123/backend-image:${tagName}"
+                env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${tagName}"
+                sh 'docker-compose up -d --build'
+            } else {
+                error("Ce pipeline doit être exécuté sur un tag !")
             }
         }
+    }
+}
+
 
         stage('Trivy Vulnerability Scan') {
             steps {
