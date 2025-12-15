@@ -92,8 +92,8 @@ stage('Push Docker Images') {
         stage('Smoke Tests') {
             steps {
                 sh '''
-                    curl -f http://localhost:3000/health > smoke_backend.log || true
-                    curl -f http://localhost:3001 > smoke_dashboard.log || true
+                    curl -f http://54.82.59.62:3000/health > smoke_backend.log || true
+                    curl -f http://54.82.59.62:3001 > smoke_dashboard.log || true
                 '''
             }
         }
