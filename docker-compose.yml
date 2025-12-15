@@ -1,5 +1,6 @@
 services:
   backend:
+    image: bnbttf123/backend-image:pr
     build:
       context: ./backend
     ports:
@@ -10,7 +11,8 @@ services:
       - PORT=80
       - DATABASE=mongodb://admin:dwXJmJVrSvXpVUML@mongodb/mapApp?retryWrites=true&w=majority&appName=map-app&authSource=admin
 
-  dashboard: 
+  dashboard:
+    image: bnbttf123/dashboard-image:pr
     build:
       context: ./dashboard
     ports:
@@ -19,7 +21,7 @@ services:
       - backend
     environment:
       - PORT=80
-    
+
   mongodb:
     image: mongo:latest
     ports:
@@ -29,6 +31,6 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: dwXJmJVrSvXpVUML
     volumes:
       - mongodb_data:/data/db
-      
+
 volumes:
   mongodb_data:
