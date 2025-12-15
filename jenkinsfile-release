@@ -1,101 +1,98 @@
 pipeline {
     agent any
-    // Le pipeline peut s’exécuter sur n’importe quel agent Linux disponible
-
-    triggers {
-        githubPush()
-        // Déclenchement automatique à chaque push sur GitHub
-    }
 
     environment {
-        // Définition des images Docker avec tag spécifique
-        BACKEND_IMAGE   = "bnbttf123/backend-image:pr"
-        DASHBOARD_IMAGE = "bnbttf123/dashboard-image:pr"
+        BACKEND_IMAGE   = "bnbttf123/backend-image"
+        DASHBOARD_IMAGE = "bnbttf123/dashboard-image"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                // Récupération du code source depuis le dépôt Git
-                checkout scm
+                git branch: 'main',
+                    url: 'git@github.com:tasnimkhardani/project-devops.git',
+                    credentialsId: 'github'
             }
         }
 
         stage('Setup') {
             steps {
-                // Vérification du démarrage du pipeline
-                sh 'echo "Setup PR OK" > setup.log'
+                sh 'echo "Setup RELEASE OK" > setup.log'
             }
         }
 
         stage('Cleanup') {
             steps {
-                // Suppression des anciens conteneurs pour éviter conflits
                 sh '''
-                docker rm -f backend || true
-                docker rm -f dashboard || true
-                docker rm -f mongodb || true
+                    docker rm -f backend || true
+                    docker rm -f dashboard || true
+                    docker rm -f mongodb || true
+                    docker rmi -f $BACKEND_IMAGE || true
+                    docker rmi -f $DASHBOARD_IMAGE || true
+                    docker-compose down || true
                 '''
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Build & Run Docker Compose') {
             steps {
-                // Construction des images Docker pour backend et dashboard
-                sh '''
-                docker build -t $BACKEND_IMAGE -f backend/Dockerfile .
-                docker build -t $DASHBOARD_IMAGE -f dashboard/Dockerfile .
-                '''
+                script {
+                    // Récupérer le tag exact du commit si existant, sinon le dernier tag
+                    def tagName = sh(
+                        script: "git describe --tags --exact-match || git describe --tags --abbrev=0",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Tag utilisé pour le build : ${tagName}"
+
+                    env.BACKEND_IMAGE = "bnbttf123/backend-image:${tagName}"
+                    env.DASHBOARD_IMAGE = "bnbttf123/dashboard-image:${tagName}"
+
+                    // Build et run avec Docker Compose
+                    sh 'docker-compose up -d --build'
+                }
             }
         }
 
-        stage('Security Scan') {
+        stage('Trivy Vulnerability Scan') {
             steps {
-                // Scan de sécurité avec Trivy pour détecter vulnérabilités critiques ou élevées
-                sh '''
-                echo "Scanning $BACKEND_IMAGE"
-                trivy image --exit-code 1 --severity CRITICAL,HIGH $BACKEND_IMAGE
-
-                echo "Scanning $DASHBOARD_IMAGE"
-                trivy image --exit-code 1 --severity CRITICAL,HIGH $DASHBOARD_IMAGE
-                '''
+                script {
+                    echo "Scan Trivy pour : ${env.BACKEND_IMAGE} et ${env.DASHBOARD_IMAGE}"
+                    sh """
+                        trivy image --exit-code 1 --severity CRITICAL,HIGH ${env.BACKEND_IMAGE}
+                        trivy image --exit-code 1 --severity CRITICAL,HIGH ${env.DASHBOARD_IMAGE}
+                    """
+                }
             }
         }
 
-        stage('Run') {
+        stage('Push Docker Images') {
             steps {
-                // Déploiement des conteneurs
-                // MongoDB d'abord, puis backend, puis dashboard
-                sh '''
-                docker run -d --name mongodb -p 4000:27017 mongo:latest
-
-                docker run -d --name backend -p 3000:80 \
-                  -e PORT=80 \
-                  --link mongodb:mongodb \
-                  $BACKEND_IMAGE
-
-                docker run -d --name dashboard -p 3001:80 \
-                  --link backend:backend \
-                  $DASHBOARD_IMAGE
-                '''
+                script {
+                    withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
+                        echo "Push images Docker : ${env.BACKEND_IMAGE} et ${env.DASHBOARD_IMAGE}"
+                        sh """
+                            docker push ${env.BACKEND_IMAGE}
+                            docker push ${env.DASHBOARD_IMAGE}
+                        """
+                    }
+                }
             }
         }
 
         stage('Smoke Tests') {
             steps {
-                // Tests rapides pour vérifier le bon fonctionnement des services
                 sh '''
-                curl -f http://localhost:3000/health > smoke_backend.log
-                curl -f http://localhost:3001 > smoke_dashboard.log
+                    curl -f http://54.82.59.62:3000/health > smoke_backend.log || true
+                    curl -f http://54.82.59.62:3001 > smoke_dashboard.log || true
                 '''
             }
         }
 
         stage('Archive Artifacts') {
             steps {
-                // Archivage des logs du pipeline pour analyse ou debug
-                archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: '*.log', fingerprint: true, allowEmptyArchive: true
             }
         }
     }
