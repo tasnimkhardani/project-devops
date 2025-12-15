@@ -54,14 +54,36 @@ pipeline {
                 }
             }
         }
+        stage('Cleanup') {
+            steps {
+                sh '''
+                    docker rm -f backend || true
+                    docker rm -f dashboard || true
+                    docker rm -f mongodb || true
+                    docker rmi -f $BACKEND_IMAGE || true
+                    docker rmi -f $DASHBOARD_IMAGE || true
+                    docker-compose down || true
+                '''
+            }
+        }
+        stage('Build images docker and run container') {
+            steps {
+                sh '''
+                   docker-compose up -d --build 
+
+                '''
+            }
+        }
 
         stage('Trivy Vulnerability Scan') {
             steps {
                 script {
-                    echo "Scan Trivy pour : ${env.BACKEND_IMAGE} et ${env.DASHBOARD_IMAGE}"
+                    echo "Scan Trivy "
                     sh """
-                        trivy image --exit-code 1 --severity CRITICAL,HIGH ${env.BACKEND_IMAGE}
-                        trivy image --exit-code 1 --severity CRITICAL,HIGH ${env.DASHBOARD_IMAGE}
+                        docker tag $DASHBOARD_IMAGE $DASHBOARD_IMAGE:release
+                        docker tag $BACKEND_IMAGE $BACKEND_IMAGE:release
+                        trivy image --exit-code 1 --severity CRITICAL,HIGH $BACKEND_IMAGE:release
+                        trivy image --exit-code 1 --severity CRITICAL,HIGH $DASHBOARD_IMAGE:release
                     """
                 }
             }
@@ -71,10 +93,9 @@ pipeline {
             steps {
                 script {
                     withDockerRegistry([credentialsId: 'Dockerhub', url: '']) {
-                        echo "Push images Docker : ${env.BACKEND_IMAGE} et ${env.DASHBOARD_IMAGE}"
                         sh """
-                            docker push ${env.BACKEND_IMAGE}
-                            docker push ${env.DASHBOARD_IMAGE}
+                            docker push $BACKEND_IMAGE:release
+                            docker push $DASHBOARD_IMAGE:release
                         """
                     }
                 }
